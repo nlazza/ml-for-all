@@ -5,9 +5,8 @@ Some of the fundamental knowledge used in those scripts is coming from the [Time
 
 # Scripts
 
-  - sarima.py - Example of using a (statsmodel) SARIMA (seasonal ARIMA) model to forecast champagne sales data
   - arima.py - Example of using a (statsmodel) ARIMA model to analyse and forecast spotify feature(s) across time
-
+  - sarima.py - Example of using a (statsmodel) SARIMA (seasonal ARIMA) model to forecast champagne sales data
 
 # Datasets
 
