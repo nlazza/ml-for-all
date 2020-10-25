@@ -46,7 +46,7 @@ def prediction_errors(y_true, y_pred):
     return
 
 # Read the Spotify Data
-df = pd.read_csv("../data/spotify_top200.csv")
+df = pd.read_csv("data/spotify_top200.csv")
 # Set the target to predict (one of the numerical columns)
 target = "acousticness"
 # Drop rows with missing values

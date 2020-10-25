@@ -45,7 +45,7 @@ def prediction_errors(y_true, y_pred):
     return
 
 # Read the Champagne Sales Data Time Series (TS)
-df = pd.read_csv("../data/champagne_sales.csv", sep="\t")
+df = pd.read_csv("data/champagne_sales.csv", sep="\t")
 # Transform the "Month" column to pandas DateTime and set it as index
 df["Month"] = df["Month"].apply(lambda x: pd.to_datetime(x, format='%y-%m'))
 df = df.set_index("Month")
