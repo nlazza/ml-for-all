@@ -5,8 +5,10 @@ Some of the fundamental knowledge used in those scripts is coming from the [Time
 
 # Scripts
 
-  - arima.py - Example of using a (statsmodel) ARIMA model to analyse and forecast spotify feature(s) across time
-  - sarima.py - Example of using a (statsmodel) SARIMA (seasonal ARIMA) model to forecast champagne sales data
+  - arima.py - Generate an ARIMA model (statsmodel library) to analyse and forecast spotify feature(s) across time
+  - sarima.py - Generate a seasonal ARIMA model, i.e. SARIMA (statsmodel library) to analyse and forecast spotify feature(s) across time
+  - prophet.py - Simple use of Facebook-Prophet library to forecast spotify feature(s) across time
+
 
 # Datasets
 

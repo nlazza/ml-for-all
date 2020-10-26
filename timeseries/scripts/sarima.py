@@ -3,7 +3,6 @@ import matplotlib.pyplot as plt
 from statsmodels.tsa.seasonal import seasonal_decompose
 from statsmodels.tsa.stattools import adfuller
 import statsmodels.api as sm
-from statsmodels.tsa.arima.model import ARIMA
 from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
 import sklearn.metrics as metrics
 
@@ -23,7 +22,7 @@ def check_statitionarity(df):
     output_df = pd.Series(results[0:4], index=['Test Statistic', 'p-value',
                           'Lags Used', 'Nr. Observations Used'])
     for key, value in results[4].items():
-        output_df[f'Critical Value ({key})'] = value
+        output_df[f"Critical Value ({key})"] = value
     print(output_df)
     return
 
@@ -45,21 +44,14 @@ def prediction_errors(y_true, y_pred):
     print(f"RMSE : {rmse:.5f}")
     return
 
-# Read the Spotify Data
-df = pd.read_csv("data/spotify_top200.csv")
-# Set the target to predict (one of the numerical columns)
-target = "acousticness"
-# Drop rows with missing values
-df = df[["date", target]].dropna()
-# Transform the "date" column to pandas DateTime
-df["date"] = df["date"].apply(lambda x: pd.to_datetime(x[:10],
-                              format='%Y-%m-%d'))
-# Average values from the same week and create a Time Series (TS)
-df = df.groupby(by="date").mean().reset_index()
-df = df.set_index("date")
+# Read the Champagne Sales Data Time Series (TS)
+df = pd.read_csv("../data/champagne_sales.csv", sep="\t")
+# Transform the "Month" column to pandas DateTime and set it as index
+df["Month"] = df["Month"].apply(lambda x: pd.to_datetime(x, format='%y-%m'))
+df = df.set_index("Month")
 
-# Keep the last 8 weeks of the TS as validation
-validation_months = 8
+# Keep the last 6 months of the TS as validation
+validation_months = 6
 validation_df = df.tail(validation_months)
 df.drop(df.tail(validation_months).index, inplace=True)
 
@@ -68,43 +60,54 @@ df.plot()
 plt.show()
 
 # Check for TS stationarity with "Dickey-Fuller Test"
-# p-value < 0.05 is a sign of stationariety
 check_statitionarity(df)
-# TS is not stationary, p-value of Dickey-Fuller Test >> 0.05
+
+# TS is not stationary, evidence of seasonality at 12 months
 # Use differencing to identify the d term (I) of ARIMA
-# Try 1st and 2nd order differencing
+# Try 1st order seasonal differencing and its first order differencing as well
 fig, axes = plt.subplots(3, 1)
 fig.tight_layout()
-df_diff = df.diff()
-df_diff_diff = df_diff.diff()
+saesonal_diff = df.diff(periods=12)
+saesonal_diff_diff = saesonal_diff.diff()
 df.plot(ax=axes[0])
-df_diff.plot(ax=axes[1])
-df_diff_diff.plot(ax=axes[2])
+saesonal_diff.plot(ax=axes[1])
+saesonal_diff_diff.plot(ax=axes[2])
 axes[0].set_title('Original Series')
-axes[1].set_title('1st order differencing')
-axes[2].set_title('2nd order differencing')
+axes[1].set_title('Seasonal 1st order differencing')
+axes[2].set_title('Non-Seasonal 1st order differencing')
 plt.show()
-# After 1 order differentiating, the TS becomes stationary
-# d terms for ARIMA = 1
+
+# After differentiating, the TS becomes stationary
+# d terms for ARIMA:
+# Seasonal d = 1
+# Non-seasonal d = 1
 
 # Checking for AR and MA terms
-# Use ACF and PACF plots of stationary (i.e. after differentiating) TS
+# Use ACF and PACF plots of stationary TS (seasonal part)
 fig, axes = plt.subplots(2, 1)
-plot_acf(df_diff.dropna(), ax=axes[0])
-plot_pacf(df_diff.dropna(), ax=axes[1])
-axes[0].set_title('ACF')
-axes[1].set_title('PACF')
+plot_acf(saesonal_diff.dropna(), ax=axes[0])
+plot_pacf(saesonal_diff.dropna(), ax=axes[1])
+axes[0].set_title('ACF Seasonal')
+axes[1].set_title('PACF Seasonal')
 plt.show()
-# ACF at lag 1 is negative, suggesting that the series is "overdifferenced"
-# MA model without AR (p = 0)
-# PACF drop after lag 1 -> q = 1
+# ACF at lag 1 is positive -> using an AR model without MA (q = 0)
+# PACF drop after lag 1 -> p = 1
+
+# Use ACF and PACF plots of stationary TS (non-seasonal part)
+fig, axes = plt.subplots(2, 1)
+plot_acf(saesonal_diff_diff.dropna(), ax=axes[0])
+plot_pacf(saesonal_diff_diff.dropna(), ax=axes[1])
+axes[0].set_title('ACF Non-Seasonal')
+axes[1].set_title('PACF Non-Seasonal')
+plt.show()
+# ACF at lag 1 is positive -> AR model without MA (q = 0)
+# PACF drop after lag 1 -> p = 1
 
 # Selected model:
-# ARIMA(0,1,1)
-p = 0
-q = 1
-d = 1
-model = ARIMA(df[target], order=(p, d, q))
+# SARIMA(1,1,0)(1,1,0)12
+model = sm.tsa.statespace.SARIMAX(df["Champagne Sales"],
+                                  order=(1, 1, 0),
+                                  seasonal_order=(1, 1, 0, 12))
 model_fit = model.fit()
 print(model_fit.summary())
 # AR p-values are < 0.05 indicating a good model
@@ -121,31 +124,26 @@ plt.show()
 # Plot Actual vs. Fitted data to check how well the ARIMA fitted
 # the training data
 fitted = model_fit.predict()
-actual = df[target]
+actual = df["Champagne Sales"]
 fig, axes = plt.subplots(1, 1)
-fitted.plot(ax=axes, label=f"Fitted {target}")
-actual.plot(ax=axes, label=f"Actual {target}")
+fitted.plot(ax=axes, label="Fitted sales")
+actual.plot(ax=axes, label="Actual sales")
 axes.set_title('Actual vs. Fitted data')
 plt.legend(loc=0)
 plt.show()
 
-# Predict the future using rolling forecast
-# After predicting one step ahead, re-train using the actual target value
-predicted_target = []
-for i in range(len(validation_df)):
-    model = ARIMA(df[target], order=(p, d, q))
-    model_fit = model.fit()
-    predicted_target.append(model_fit.forecast().values[0])
-    df = df.append(validation_df.head(i))
-pred_df = pd.Series(predicted_target, index=validation_df.index, name=target)
+# Predict the future Champagne Sales for the validation period
+pred_validation = model_fit.forecast(len(validation_df))
 
 # Plot Actual vs. Predicted data to check how well the ARIMA predicted
 # the validation data
 fig, axes = plt.subplots(1, 1)
-pred_df.plot(ax=axes, label=f"Predicted {target}")
-validation_df.plot(ax=axes, label=f"Actual {target}")
+# Uncomment if you want to plot the whole series + validation
+#df["Champagne Sales"].plot(ax=axes, label="Training")
+pred_validation.plot(ax=axes, label="Predicted sales")
+validation_df["Champagne Sales"].plot(ax=axes, label="Actual sales")
 plt.legend(loc=0)
 plt.show()
 
 # Calculate the prediction errors
-prediction_errors(validation_df[target], predicted_target)
+prediction_errors(validation_df["Champagne Sales"], pred_validation)
